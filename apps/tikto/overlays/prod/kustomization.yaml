@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: tikto-prod
+resources:
+  - ../../../base
+patches:
+  - path: environment.yaml
+  - path: target-group-binding.yaml
+  - path: backend-image.yaml
+  - path: notification-image.yaml
+  - path: frontend-image.yaml
+  - path: frontend-target-group-binding.yaml

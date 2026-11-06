@@ -1,0 +1,9 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: backend
+spec:
+  targetType: ip
+  serviceRef:
+    name: backend
+    port: http

@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: tikto-prod
+  namespace: argocd
+spec:
+  sourceRepos:
+    - https://github.com/tikto-calender/manifest.git
+  destinations:
+    - namespace: tikto-prod
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ServiceAccount
+    - group: ""
+      kind: Service
+    - group: apps
+      kind: Deployment
+    - group: elbv2.k8s.aws
+      kind: TargetGroupBinding
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tikto-prod
+  namespace: argocd
+spec:
+  project: tikto-prod
+  source:
+    repoURL: https://github.com/tikto-calender/manifest.git
+    targetRevision: main
+    path: apps/tikto/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tikto-prod
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true

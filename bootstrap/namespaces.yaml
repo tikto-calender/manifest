@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tikto-dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tikto-prod
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
