@@ -29,7 +29,7 @@ spec:
   project: tikto-dev
   source:
     repoURL: https://github.com/tikto-calender/manifest.git
-    targetRevision: dev
+    targetRevision: main
     path: apps/tikto/overlays/dev
   destination:
     server: https://kubernetes.default.svc
