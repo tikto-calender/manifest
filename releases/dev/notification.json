@@ -1,0 +1,5 @@
+{
+  "image": "ghcr.io/tikto-calender/notification@sha256:c61f19c91ad1fa40e18a281361b9b22235f4453b12f32e7a1d98fa7aa0788dda",
+  "source_repository": "tikto-calender/notification-service",
+  "source_sha": "d4d2215587b9e8ec6694225145786aa9767ad88e"
+}
