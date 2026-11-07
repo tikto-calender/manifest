@@ -7,4 +7,4 @@ spec:
     spec:
       containers:
         - name: tikto
-          image: ghcr.io/tikto-calender/backend@sha256:3ddd0a7abf8f38efc96d978f9aab7698b57205ee4fb656c438cf146f5fbf714c
+          image: ghcr.io/tikto-calender/backend@sha256:b945de1e1d4f45b7d71e96481ffe556def22a9dbeb0bda32410a4166586f0329
