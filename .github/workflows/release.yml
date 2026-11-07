@@ -1,31 +1,40 @@
-name: Promote production
+name: Promote All Services
 on:
   workflow_dispatch:
     inputs:
-      component:
-        description: Service to promote from Dev.
-        type: choice
+      frontend_version:
+        description: Frontend release version, for example v2.0.1.
         required: true
-        options:
-          - frontend
-          - backend
-          - notification
-      version:
-        description: Release version, for example v1.2.3.
         type: string
+      backend_version:
+        description: Backend release version, for example v2.0.1.
         required: true
+        type: string
+      notification_version:
+        description: Notification release version, for example v2.0.1.
+        required: true
+        type: string
 
 permissions:
   contents: write
   packages: write
 
-concurrency:
-  group: promote-${{ inputs.component }}
-  cancel-in-progress: false
-
 jobs:
   promote:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: frontend
+            version: ${{ inputs.frontend_version }}
+          - component: backend
+            version: ${{ inputs.backend_version }}
+          - component: notification
+            version: ${{ inputs.notification_version }}
+    concurrency:
+      group: promote-${{ matrix.component }}
+      cancel-in-progress: false
     uses: tikto-calender/reusable-workflow/.github/workflows/cd-prod.yml@main
     with:
-      component: ${{ inputs.component }}
-      version: ${{ inputs.version }}
+      component: ${{ matrix.component }}
+      version: ${{ matrix.version }}

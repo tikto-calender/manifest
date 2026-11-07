@@ -1,0 +1,22 @@
+name: Promote Backend
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Backend release version, for example v2.0.1.
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  promote:
+    concurrency:
+      group: promote-backend
+      cancel-in-progress: false
+    uses: tikto-calender/reusable-workflow/.github/workflows/cd-prod.yml@main
+    with:
+      component: backend
+      version: ${{ inputs.version }}
