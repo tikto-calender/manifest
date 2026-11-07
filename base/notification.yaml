@@ -16,6 +16,19 @@ spec:
       containers:
         - name: notification
           image: tikto/notification:replace-me
+          env:
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: notification-telegram
+                  key: TELEGRAM_BOT_TOKEN
+                  optional: true
+            - name: TELEGRAM_CHAT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: notification-telegram
+                  key: TELEGRAM_CHAT_ID
+                  optional: true
           ports:
             - name: http
               containerPort: 8000
