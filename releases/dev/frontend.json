@@ -1,0 +1,5 @@
+{
+  "image": "ghcr.io/tikto-calender/frontend@sha256:e8c1a9a7c9fd74a10b7766c5d22747edf36580b59b134b9c2373de1be19761db",
+  "source_repository": "tikto-calender/frontend",
+  "source_sha": "c6b00e10c3746384a828049a07d56c639f567e51"
+}

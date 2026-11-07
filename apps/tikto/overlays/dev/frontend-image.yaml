@@ -7,4 +7,4 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: tikto/frontend:replace-me
+          image: ghcr.io/tikto-calender/frontend@sha256:e8c1a9a7c9fd74a10b7766c5d22747edf36580b59b134b9c2373de1be19761db
