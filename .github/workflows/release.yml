@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: promote-${{ inputs.component }}
@@ -24,7 +25,7 @@ concurrency:
 
 jobs:
   promote:
-    uses: tikto-calender/reusable-workflow/.github/workflows/cd-prod.yml@fb91f225096ec3df8fc0beff53662e6b87414ccc
+    uses: tikto-calender/reusable-workflow/.github/workflows/cd-prod.yml@main
     with:
       component: ${{ inputs.component }}
       version: ${{ inputs.version }}
