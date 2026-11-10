@@ -15,7 +15,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: frontend
-          image: tikto/frontend:replace-me
+          image: {{ required "frontend.image is required" .Values.frontend.image | quote }}
           ports:
             - name: http
               containerPort: 8080
@@ -47,6 +47,7 @@ metadata:
   name: frontend
 spec:
   targetType: ip
+  targetGroupName: {{ required "frontendTargetGroup is required" .Values.frontendTargetGroup | quote }}
   serviceRef:
     name: frontend
     port: http

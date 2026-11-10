@@ -1,6 +1,0 @@
-apiVersion: elbv2.k8s.aws/v1beta1
-kind: TargetGroupBinding
-metadata:
-  name: backend
-spec:
-  targetGroupName: tikto-dev-eks-backend

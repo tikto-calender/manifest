@@ -17,6 +17,10 @@ spec:
       kind: Service
     - group: apps
       kind: Deployment
+    - group: argoproj.io
+      kind: Rollout
+    - group: argoproj.io
+      kind: AnalysisTemplate
     - group: elbv2.k8s.aws
       kind: TargetGroupBinding
 ---
@@ -30,11 +34,30 @@ spec:
   source:
     repoURL: https://github.com/tikto-calender/manifest.git
     targetRevision: main
-    path: overlays/dev
+    path: charts/tikto
+    helm:
+      valueFiles:
+        - environments/dev/values.yaml
+        - environments/dev/frontend-image.yaml
+        - environments/dev/backend-image.yaml
+        - environments/dev/notification-image.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: tikto-dev
+  ignoreDifferences:
+    - group: ""
+      kind: Service
+      name: backend-lab-active
+      jsonPointers:
+        - /spec/selector/rollouts-pod-template-hash
+    - group: ""
+      kind: Service
+      name: backend-lab-preview
+      jsonPointers:
+        - /spec/selector/rollouts-pod-template-hash
   syncPolicy:
+    syncOptions:
+      - RespectIgnoreDifferences=true
     automated:
       prune: false
       selfHeal: true

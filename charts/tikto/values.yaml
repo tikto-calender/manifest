@@ -1,0 +1,12 @@
+environment: ''
+backendTable: ''
+backendReplicas: 1
+frontendTargetGroup: ''
+backendSlots: {}
+rolloutLab:
+  enabled: false
+frontend: {}
+backend: {}
+notification: {}
+blue: {}
+green: {}

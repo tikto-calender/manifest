@@ -15,7 +15,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: notification
-          image: tikto/notification:replace-me
+          image: {{ required "notification.image is required" .Values.notification.image | quote }}
           env:
             - name: TELEGRAM_BOT_TOKEN
               valueFrom:

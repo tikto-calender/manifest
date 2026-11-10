@@ -18,6 +18,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 jobs:
   promote:
@@ -27,8 +28,6 @@ jobs:
         include:
           - component: frontend
             version: ${{ inputs.frontend_version }}
-          - component: backend
-            version: ${{ inputs.backend_version }}
           - component: notification
             version: ${{ inputs.notification_version }}
     concurrency:
@@ -38,3 +37,12 @@ jobs:
     with:
       component: ${{ matrix.component }}
       version: ${{ matrix.version }}
+
+  promote-backend:
+    uses: ./.github/workflows/release-backend.yml
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    with:
+      version: ${{ inputs.backend_version }}

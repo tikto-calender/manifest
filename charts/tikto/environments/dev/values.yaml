@@ -1,0 +1,10 @@
+environment: dev
+backendTable: tikto-dev-eks-app
+backendReplicas: 1
+frontendTargetGroup: tikto-dev-eks-frontend
+backendSlots:
+  backend:
+    imageKey: backend
+    targetGroup: tikto-dev-eks-backend
+rolloutLab:
+  enabled: false

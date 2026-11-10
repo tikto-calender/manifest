@@ -1,0 +1,2 @@
+notification:
+  image: ghcr.io/tikto-calender/notification:v2.0.0@sha256:c61f19c91ad1fa40e18a281361b9b22235f4453b12f32e7a1d98fa7aa0788dda

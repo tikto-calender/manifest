@@ -1,0 +1,5 @@
+apiVersion: v2
+name: tikto
+description: TikTo Calendar workloads and ALB target bindings
+type: application
+version: 0.2.0

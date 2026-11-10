@@ -30,7 +30,14 @@ spec:
   source:
     repoURL: https://github.com/tikto-calender/manifest.git
     targetRevision: main
-    path: overlays/prod
+    path: charts/tikto
+    helm:
+      valueFiles:
+        - environments/prod/values.yaml
+        - environments/prod/frontend-image.yaml
+        - environments/prod/notification-image.yaml
+        - environments/prod/blue-image.yaml
+        - environments/prod/green-image.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: tikto-prod

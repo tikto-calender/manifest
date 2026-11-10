@@ -1,0 +1,11 @@
+environment: prod
+backendTable: tikto-prod-app
+backendReplicas: 2
+frontendTargetGroup: tikto-prod-eks-frontend
+backendSlots:
+  backend:
+    imageKey: blue
+    targetGroup: tikto-prod-eks-backend
+  backend-green:
+    imageKey: green
+    targetGroup: tikto-prod-eks-backend-green

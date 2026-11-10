@@ -1,0 +1,104 @@
+{{- if and (eq .Values.environment "dev") .Values.rolloutLab.enabled }}
+{{- $image := required "backend.image is required for the rollout lab" .Values.backend.image }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: backend-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-lab
+  template:
+    metadata:
+      labels:
+        app: backend-lab
+    spec:
+      {{- include "tikto.backendPodSpec" (dict "values" .Values "name" "backend-lab" "image" $image) | nindent 6 }}
+  strategy:
+    blueGreen:
+      activeService: backend-lab-active
+      previewService: backend-lab-preview
+      prePromotionAnalysis:
+        templates:
+          - templateName: backend-lab-smoke
+        args:
+          - name: service
+            value: backend-lab-preview
+          - name: image
+            value: {{ $image | quote }}
+      postPromotionAnalysis:
+        templates:
+          - templateName: backend-lab-smoke
+        args:
+          - name: service
+            value: backend-lab-active
+          - name: image
+            value: {{ $image | quote }}
+{{- range $role := list "active" "preview" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-lab-{{ $role }}
+spec:
+  selector:
+    app: backend-lab
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+{{- end }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: backend-lab-smoke
+spec:
+  args:
+    - name: service
+    - name: image
+  metrics:
+    - name: smoke
+      failureLimit: 0
+      provider:
+        job:
+          spec:
+            activeDeadlineSeconds: 45
+            backoffLimit: 0
+            ttlSecondsAfterFinished: 600
+            template:
+              spec:
+                automountServiceAccountToken: false
+                restartPolicy: Never
+                containers:
+                  - name: smoke
+                    image: {{ "{{args.image}}" | quote }}
+                    env:
+                      - name: SMOKE_SERVICE
+                        value: {{ "{{args.service}}" | quote }}
+                      - name: EXPECTED_IMAGE
+                        value: {{ "{{args.image}}" | quote }}
+                    command: [node, --input-type=module, -e]
+                    args:
+                      - |
+                        const base = 'http://' + process.env.SMOKE_SERVICE;
+                        async function get(path) {
+                          const response = await fetch(base + path, { signal: AbortSignal.timeout(5000) });
+                          if (!response.ok) throw new Error(path + ' returned ' + response.status);
+                          return (await response.json()).data;
+                        }
+                        for (let attempt = 1; ; attempt++) {
+                          try {
+                            const runtime = await get('/api/runtime');
+                            if (runtime.image !== process.env.EXPECTED_IMAGE) throw new Error('Wrong backend image');
+                            const status = await get('/api/status');
+                            if (status.database.status !== 'ok') throw new Error('Database check failed');
+                            console.log('Smoke test passed for ' + runtime.image);
+                            break;
+                          } catch (error) {
+                            if (attempt === 5) throw error;
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                          }
+                        }
+{{- end }}
