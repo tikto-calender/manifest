@@ -1,2 +1,2 @@
 backend:
-  image: ghcr.io/tikto-calender/backend@sha256:b945de1e1d4f45b7d71e96481ffe556def22a9dbeb0bda32410a4166586f0329
+  image: ghcr.io/tikto-calender/backend@sha256:5ba0bca0cfc796361331e2882ea03c12ef0e5a4db695be73e6ae1cef1bacef73
