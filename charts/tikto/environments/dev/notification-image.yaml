@@ -1,2 +1,2 @@
 notification:
-  image: ghcr.io/tikto-calender/notification@sha256:7538489ce0272a60f3fc65144a340856747d8da1adf02b7e3404d1fdfdef97d8
+  image: ghcr.io/tikto-calender/notification@sha256:315ac9dbdc81f17f8a10e72453021b7a95375e007c9cfecd7472b19f6236b137
