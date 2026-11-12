@@ -1,4 +1,4 @@
-name: Promote Backend (blue/green)
+name: Promote Backend
 on:
   workflow_dispatch:
     inputs:
@@ -15,10 +15,13 @@ on:
 permissions:
   contents: write
   packages: write
-  id-token: write
 
 jobs:
   promote:
-    uses: tikto-calender/reusable-workflow/.github/workflows/cd-prod-backend.yml@main
+    concurrency:
+      group: promote-backend
+      cancel-in-progress: false
+    uses: tikto-calender/reusable-workflow/.github/workflows/cd-prod.yml@main
     with:
+      component: backend
       version: ${{ inputs.version }}

@@ -36,8 +36,7 @@ spec:
         - environments/prod/values.yaml
         - environments/prod/frontend-image.yaml
         - environments/prod/notification-image.yaml
-        - environments/prod/blue-image.yaml
-        - environments/prod/green-image.yaml
+        - environments/prod/backend-image.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: tikto-prod

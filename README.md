@@ -1,6 +1,6 @@
 # TikTo Manifest
 
-Defines how Argo CD deploys TikTo Calendar to EKS. The [Helm chart](charts/tikto) deploys Frontend, Backend and Notification Service with a pinned GHCR image for each environment. Prod has two Backend slots for blue/green releases.
+Defines how Argo CD deploys TikTo Calendar to EKS. The [Helm chart](charts/tikto) uses one Deployment per service and pins each image by its GHCR digest. The Prod Backend Deployment rolls out new images with two replicas.
 
 ## Render the chart locally
 
@@ -43,22 +43,16 @@ If the Prod ALB and target groups are ready, run `kubectl apply -f ./bootstrap/p
 
 ## Promote to Production
 
-After checking Dev, run the relevant **Promote** workflow from `main` in Manifest's **Actions** tab. Enter a version such as `v2.0.1`. After checking Prod, run **Finalize release** in the source repository with the same version. [Shared workflows](https://github.com/tikto-calender/reusable-workflow)
-
-<a name="configure-backend-bluegreen"></a>
 <a name="promote-backend"></a>
 
-### Backend blue/green
+After checking Dev, run **Promote Frontend**, **Promote Backend**, **Promote Notification**, or **Promote All Services** from `main` in Manifest's **Actions** tab. The shared workflow tags the verified Dev digest and updates the Prod Helm values for Argo CD. Check the rollout and Prod API, then run **Finalize release** in the source repository with the same version. [Shared workflows](https://github.com/tikto-calender/reusable-workflow)
 
-Enable the preview rules and GitHub OIDC role in IaC. Make a Linux runner labeled `tikto-prod-preview` available to Manifest with Python 3.11+, AWS CLI v2, Docker and Buildx. Set these variables in Manifest's `prod` Environment.
+## Migrate an existing Backend deployment
 
-| Variable | Terraform output | CloudFormation output |
-| --- | --- | --- |
-| `BACKEND_RELEASE_ROLE_ARN` | `backend_release_role_arn` | `BackendReleaseRoleArn` |
-| `BACKEND_RELEASE_RULE_ARN` | `backend_release_rule_arn` | `BackendReleaseRuleArn` |
-| `BACKEND_RELEASE_BLUE_ARN` | `backend_release_target_arns` → `blue` | `BackendReleaseBlueArn` |
-| `BACKEND_RELEASE_GREEN_ARN` | `backend_release_target_arns` → `green` | `BackendReleaseGreenArn` |
-| `BACKEND_RELEASE_URL` | `application_url` | `ProdUrl` |
-| `BACKEND_DEV_URL` | `dev_application_url` | `DevUrl` |
+For a running two-slot installation, finish or cancel the old promotion job and confirm `prod/backend-image.yaml` records the digest serving Prod. Reapply `bootstrap/prod.yaml` after publishing the new chart so Argo CD rolls that digest out to `deployment/backend`.
 
-Check that both slots have two healthy targets and that Dev reports its digest at `/api/runtime`. The shared Backend workflow checks the inactive slot before switching traffic and records the verified slot in [backend-slot](charts/tikto/environments/prod/backend-slot).
+Wait for the Deployment and its existing Backend target group to become healthy. If the listener still points to Green, switch `/api` to the existing Backend target group before applying the IaC changes. Verify the API, apply IaC to remove the old preview rules and target group, then delete the old Kubernetes resources.
+
+```sh
+kubectl -n tikto-prod delete deployment/backend-green service/backend-green targetgroupbinding/backend-green --ignore-not-found
+```

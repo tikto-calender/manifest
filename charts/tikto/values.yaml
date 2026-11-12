@@ -8,5 +8,3 @@ rolloutLab:
 frontend: {}
 backend: {}
 notification: {}
-blue: {}
-green: {}

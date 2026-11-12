@@ -4,8 +4,5 @@ backendReplicas: 2
 frontendTargetGroup: tikto-prod-eks-frontend
 backendSlots:
   backend:
-    imageKey: blue
+    imageKey: backend
     targetGroup: tikto-prod-eks-backend
-  backend-green:
-    imageKey: green
-    targetGroup: tikto-prod-eks-backend-green
