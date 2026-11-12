@@ -1,10 +1,42 @@
 # TikTo Manifest
 
-This repository defines what Argo CD deploys to EKS. The [Helm chart](charts/tikto) describes the workloads and ALB target bindings. The [Dev](bootstrap/dev.yaml) and [Prod](bootstrap/prod.yaml) Applications select the environment values and pinned GHCR images from `main`. Dev has one Backend deployment. Prod has Blue and Green Backend deployments so a new image can be checked before it receives live traffic.
+Repo này chứa cấu hình để Argo CD triển khai **Frontend, Backend và Notification Service** lên EKS. [Helm chart](charts/tikto) định nghĩa pod và Service. Các file values chọn image GHCR theo digest cho từng môi trường. Dev có một Backend, còn Prod có hai nhóm Backend Blue và Green để kiểm tra bản mới trước khi chuyển lưu lượng.
 
-## Render the chart locally
+| Bạn muốn làm gì? | Bắt đầu ở đâu? |
+| --- | --- |
+| Xem YAML mà Argo CD sẽ tạo | [Render Helm trên máy](#render-helm) |
+| Đưa TikTo lên một cụm EKS đã có hạ tầng | [Triển khai bằng Argo CD](#deploy-with-argo-cd) |
+| Đưa image đã kiểm tra ở Dev lên Prod | [Promote lên Prod](#promote-to-production) |
 
-From the repository root, use Helm 3 to render the Dev chart with the same values as Argo CD. This check renders Kubernetes YAML locally.
+<a name="render-helm"></a>
+
+## 1. Render Helm trên máy
+
+Cài Helm và mở terminal ở thư mục gốc repo. Nếu chưa clone, lệnh sau dùng được trên **Linux/macOS và Windows PowerShell**.
+
+```sh
+git clone https://github.com/tikto-calender/manifest.git
+cd manifest
+```
+
+### Linux/macOS
+
+```sh
+helm template tikto-dev ./charts/tikto --namespace tikto-dev \
+  -f ./charts/tikto/environments/dev/values.yaml \
+  -f ./charts/tikto/environments/dev/frontend-image.yaml \
+  -f ./charts/tikto/environments/dev/backend-image.yaml \
+  -f ./charts/tikto/environments/dev/notification-image.yaml
+
+helm template tikto-prod ./charts/tikto --namespace tikto-prod \
+  -f ./charts/tikto/environments/prod/values.yaml \
+  -f ./charts/tikto/environments/prod/frontend-image.yaml \
+  -f ./charts/tikto/environments/prod/notification-image.yaml \
+  -f ./charts/tikto/environments/prod/blue-image.yaml \
+  -f ./charts/tikto/environments/prod/green-image.yaml
+```
+
+### Windows PowerShell
 
 ```powershell
 helm template tikto-dev ./charts/tikto --namespace tikto-dev `
@@ -12,69 +44,88 @@ helm template tikto-dev ./charts/tikto --namespace tikto-dev `
   -f ./charts/tikto/environments/dev/frontend-image.yaml `
   -f ./charts/tikto/environments/dev/backend-image.yaml `
   -f ./charts/tikto/environments/dev/notification-image.yaml
+
+helm template tikto-prod ./charts/tikto --namespace tikto-prod `
+  -f ./charts/tikto/environments/prod/values.yaml `
+  -f ./charts/tikto/environments/prod/frontend-image.yaml `
+  -f ./charts/tikto/environments/prod/notification-image.yaml `
+  -f ./charts/tikto/environments/prod/blue-image.yaml `
+  -f ./charts/tikto/environments/prod/green-image.yaml
 ```
 
-The output includes Deployments for `frontend`, `backend` and `notification`, plus target group bindings for Frontend and Backend. To render Prod, use namespace `tikto-prod` and the files listed under `helm.valueFiles` in [bootstrap/prod.yaml](bootstrap/prod.yaml).
+Dev render ba Deployment, Prod render bốn Deployment. `helm template` chỉ in YAML. Cấu hình triển khai cần EKS, ALB target group và DynamoDB của TikTo.
 
-## Deploy with Argo CD
+<a name="deploy-with-argo-cd"></a>
 
-You need an EKS cluster with the TikTo target groups, AWS Load Balancer Controller, Argo CD and kubectl access. For platform and controller setup, follow the [Terraform guide](https://github.com/tikto-calender/infra) or [CloudFormation guide](https://github.com/tikto-calender/infra-by-cloudformation).
+## 2. Triển khai bằng Argo CD
 
-Confirm that the environment values and pullable image digests are published to manifest `main`. From the repository root, apply the namespaces and the Application for each enabled environment:
+Cần kubectl trỏ vào cụm EKS, AWS Load Balancer Controller, Argo CD và các target group đã được tạo. Làm theo [Terraform](https://github.com/tikto-calender/infra) hoặc [CloudFormation](https://github.com/tikto-calender/infra-by-cloudformation) để dựng các phần này. Argo CD đọc chart và các digest từ `main`, vì vậy hãy kiểm tra các image trên nhánh đó kéo được từ GHCR.
 
-```powershell
+Từ thư mục repo Manifest, kiểm tra kube context rồi tạo Application Dev. Lệnh dùng chung cho **Linux/macOS và Windows PowerShell**.
+
+```sh
 kubectl config current-context
 kubectl apply -f ./bootstrap/namespaces.yaml
 kubectl apply -f ./bootstrap/dev.yaml
-# Run this only if the Prod ALB and target groups are enabled.
-kubectl apply -f ./bootstrap/prod.yaml
 kubectl -n argocd get applications
+kubectl -n tikto-dev get pods
 ```
 
-Expect each enabled application to report `Synced` and `Healthy`. Check `/api/health` and `/api/status` on its ALB URL. To enable Telegram, create the `notification-telegram` Secret in the relevant namespace using the [example manifests](examples/secrets).
+Nếu đã bật ALB và target group Prod, chạy thêm:
 
-## Promote to Production
+```sh
+kubectl apply -f ./bootstrap/prod.yaml
+kubectl -n argocd get applications
+kubectl -n tikto-prod get pods
+```
 
-After verifying Dev, open **Actions** in this repository and run the relevant workflow from `main` with a version such as `v2.0.1`. Each workflow promotes the digest already deployed to Dev.
+Application cần báo `Synced` và `Healthy`. Mở URL ALB của môi trường, sau đó kiểm tra `/api/health` và `/api/status`. URL nằm trong output Terraform (`dev_application_url`, `application_url`) hoặc CloudFormation (`DevUrl`, `ProdUrl`). Có thể mở giao diện Argo CD qua `kubectl -n argocd port-forward svc/argocd-server 8080:443`.
 
-| Workflow in Manifest | Reusable workflow |
+Để bật Telegram, sao chép file mẫu cho đúng môi trường trong [examples/secrets](examples/secrets), điền token và chat ID, rồi áp dụng file chứa Secret `notification-telegram` vào namespace tương ứng. Các file YAML tạo trong thư mục đó được Git ignore.
+
+<a name="promote-to-production"></a>
+
+## 3. Promote lên Prod
+
+Sau khi xác minh bản Dev, mở **Actions** trong repo Manifest, chọn nhánh `main` và nhập version mới, ví dụ `v2.0.1`. Mỗi workflow dùng đúng digest đã triển khai ở Dev.
+
+| Chọn trong Actions | Workflow dùng chung |
 | --- | --- |
 | [Promote Frontend](.github/workflows/release-frontend.yml) | `cd-prod.yml` |
 | [Promote Notification](.github/workflows/release-notification.yml) | `cd-prod.yml` |
 | [Promote Backend (blue/green)](.github/workflows/release-backend.yml) | `cd-prod-backend.yml` |
-| [Promote All Services](.github/workflows/release.yml) | Both workflows, with one version per service |
+| [Promote All Services](.github/workflows/release.yml) | Cả hai workflow, mỗi dịch vụ nhận một version |
 
-Check the Prod application in Argo CD and verify the app through the Prod ALB. Then run **Finalize release** in each corresponding source repository with the same version. [Shared workflow setup](https://github.com/tikto-calender/reusable-workflow)
+Kiểm tra Argo CD và URL Prod sau khi chạy. Sau đó chạy **Finalize release** trên `main` của repo ứng dụng tương ứng với cùng version. Khi thay đổi một workflow dùng chung, publish thay đổi đó lên `main` của [reusable-workflow](https://github.com/tikto-calender/reusable-workflow) trước khi publish caller.
 
-When publishing this migration, publish `cd-prod-backend.yml` and `scripts/backend_release.py` to `main` in `reusable-workflow` before publishing the Manifest caller.
+<a name="configure-backend-bluegreen"></a>
 
-## Configure Backend blue/green
+## Cấu hình Backend blue/green
 
-1. Publish the compatible reusable workflows on `reusable-workflow` `main` first. They support both Helm values and the earlier Kustomize layout.
-2. Configure the runner's fixed egress CIDR and the GitHub OIDC provider in your platform stack. For Terraform, use `preview_runner_cidrs` and `github_oidc_provider_arn`. When migrating an existing Terraform deployment, verify the plan moves the Prod API rule in state, preserves Blue's ALB and target group, and adds Green and the preview rules. Apply the infrastructure before switching Argo CD to the chart.
-3. Publish the chart and Argo Application specs, then apply the Dev and Prod Applications. Blue keeps the existing backend resource names. Check that both slots have two healthy targets and that normal traffic reaches the active slot recorded in Git. The cluster needs capacity for both slots and one surge replica during an update.
-4. Register a trusted Linux runner with label tikto-prod-preview, Python 3.11+, AWS CLI v2, Docker and Buildx. Protect the prod GitHub Environment with a main branch deployment restriction. Restrict the runner to this repository and production workflows.
-5. Set the prod Environment variables below. Then deploy a new BE Dev commit containing RELEASE_IMAGE support and check /api/runtime before attempting promotion.
+1. Bật preview listener rules và IAM role dùng GitHub OIDC trong IaC. Terraform dùng `preview_runner_cidrs` và `github_oidc_provider_arn`. CloudFormation dùng `PreviewRunnerCidr` và `GitHubOidcProviderArn`. Khi nâng cấp Terraform, xem plan để xác nhận ALB và target group Blue được giữ lại.
+2. Dùng runner Linux có nhãn `tikto-prod-preview`, IP egress cố định, Python 3.11+, AWS CLI v2, Docker và Buildx. Đặt GitHub Environment `prod` của Manifest cho nhánh `main`. Cấp Manifest quyền **Write** trên package Backend ở GHCR.
+3. Cấu hình các biến trong Environment `prod` theo bảng dưới. Xác nhận cả hai slot có hai target khỏe, cluster đủ chỗ cho một pod tăng thêm khi cập nhật và Backend Dev hiển thị digest tại `/api/runtime`.
 
-| Variable | Source |
-| --- | --- |
-| BACKEND_RELEASE_ROLE_ARN | Terraform backend_release_role_arn |
-| BACKEND_RELEASE_RULE_ARN | Terraform backend_release_rule_arn |
-| BACKEND_RELEASE_BLUE_ARN, BACKEND_RELEASE_GREEN_ARN | The blue and green entries from backend_release_target_arns |
-| BACKEND_RELEASE_URL | Prod ALB application URL |
-| BACKEND_DEV_URL | Dev ALB application URL |
+| Biến GitHub Actions | Terraform output | CloudFormation output |
+| --- | --- | --- |
+| `BACKEND_RELEASE_ROLE_ARN` | `backend_release_role_arn` | `BackendReleaseRoleArn` |
+| `BACKEND_RELEASE_RULE_ARN` | `backend_release_rule_arn` | `BackendReleaseRuleArn` |
+| `BACKEND_RELEASE_BLUE_ARN` | `backend_release_target_arns` → `blue` | `BackendReleaseBlueArn` |
+| `BACKEND_RELEASE_GREEN_ARN` | `backend_release_target_arns` → `green` | `BackendReleaseGreenArn` |
+| `BACKEND_RELEASE_URL` | `application_url` | `ProdUrl` |
+| `BACKEND_DEV_URL` | `dev_application_url` | `DevUrl` |
 
-## Promote Backend
+<a name="promote-backend"></a>
 
-Run **Promote Backend (blue/green)** on manifest main with a new version such as v2.0.1. The workflow checks Dev, retags its digest, and commits it into the inactive slot's values. After the ALB sees two healthy candidate targets, five consecutive preview checks confirm the exact image and a read-only database health query. The preview header is accepted only from the configured runner CIDRs.
+### Cách workflow Backend chuyển lưu lượng
 
-The workflow switches the normal API rule, samples the ordinary user path, and checks CloudWatch request and 5xx counts for the candidate target group. Synthetic failure, p95 above one second, more than 1% target 5xx, or insufficient data fail the release and restore the previous rule. The previous slot stays running for the next promotion. A successful release records the active slot and version in Git. Run source **Finalize release** after promotion.
+**Promote Backend (blue/green)** ghi image mới vào slot đang chờ. Workflow xác nhận hai target khỏe và yêu cầu năm lần kiểm tra preview liên tiếp, gồm kiểm tra đúng digest và đọc DynamoDB. Sau khi chuyển ALB, workflow kiểm tra đường dẫn người dùng và số liệu CloudWatch. Lỗi kiểm tra, p95 trên một giây, tỷ lệ target 5xx trên 1% hoặc thiếu dữ liệu sẽ đưa lưu lượng về slot trước.
 
-If the runner is forcibly stopped after switching, the next promotion invocation compares the live rule with the last verified Git slot and restores it before proceeding. Verify the live rule promptly after an interrupted run. For recovery while the pipeline is unavailable, point the Prod API rule at the target group in backend-slot after checking that group is healthy. The workflow owns the API rule action and Terraform owns its conditions and the preview rules.
+Sau khi thành công, workflow ghi slot đang chạy vào [backend-slot](charts/tikto/environments/prod/backend-slot). Nếu job bị ngắt sau lúc chuyển lưu lượng, kiểm tra ngay listener ALB và slot đã xác minh trong Git. Lần promote tiếp theo sẽ thử khôi phục slot đã ghi nếu nó còn khỏe. Khi cần khôi phục thủ công, đối chiếu sức khỏe target group trước khi chuyển listener.
 
-## Argo Rollouts lab on Dev
+## Lab Argo Rollouts trên Dev
 
-The lab follows the Dev Backend digest. Its two internal Services are separate from the public Dev Backend and its ALB. Install the controller and CRDs before enabling the lab.
+Lab theo digest Backend Dev và dùng hai Service nội bộ. Cài controller trước khi bật lab. Các lệnh dùng chung cho **Linux/macOS và Windows PowerShell**.
 
 ```sh
 helm repo add argo https://argoproj.github.io/argo-helm
@@ -83,13 +134,10 @@ helm upgrade --install argo-rollouts argo/argo-rollouts --version 2.43.11 --name
 kubectl wait --for=condition=Established crd/rollouts.argoproj.io crd/analysistemplates.argoproj.io --timeout=120s
 ```
 
-1. Reapply bootstrap/dev.yaml so the AppProject allows the lab resources and Argo CD leaves the controller-managed Service selector hashes alone.
-2. Deploy a Dev Backend image that reports its digest as image in /api/runtime. Set rolloutLab.enabled to true in charts/tikto/environments/dev/values.yaml on manifest main.
-3. After the first revision becomes active, deploy another Backend commit through Dev CD. Watch the new ReplicaSet and the test Jobs.
+Áp lại [Application Dev](bootstrap/dev.yaml), kiểm tra Backend Dev có digest tại `/api/runtime`, rồi đặt `rolloutLab.enabled: true` trong [values Dev](charts/tikto/environments/dev/values.yaml) trên `main`. Khi bản đầu đã active, deploy thêm một Backend commit vào Dev để xem các job kiểm tra preview và active.
 
 ```sh
 kubectl -n tikto-dev get rollouts,analysisruns,jobs -w
-kubectl -n tikto-dev logs job/<smoke-job-name>
 ```
 
-The pre-promotion Job checks the preview Service. The post-promotion Job checks the active Service after switching. Both confirm the expected image and a read-only DynamoDB check. A failed preview check blocks the switch. A failed post-promotion check aborts and restores the previous stable route when a stable revision is available. Use a Dev candidate with a reproducibly broken runtime response to demonstrate a blocked promotion, then deploy a corrected digest.
+Nếu kiểm tra preview thất bại, workflow rollout giữ route đang chạy. Nếu kiểm tra sau khi chuyển thất bại, controller có thể trở về bản ổn định trước đó.
