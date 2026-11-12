@@ -1,12 +1,58 @@
-# TikTo Helm deployments
+# TikTo Manifest
 
-Argo CD renders [the chart](charts/tikto) with the values listed in [Dev](bootstrap/dev.yaml) and [Prod](bootstrap/prod.yaml). Dev uses one Backend slot and a GHCR image pinned by commit digest. Frontend and Notification continue to use one deployment per environment. Prod uses SemVer tags pinned to the same digest tested in Dev. The Helm chart version tracks the chart itself.
+This repository defines what Argo CD deploys to EKS. The [Helm chart](charts/tikto) describes the workloads and ALB target bindings. The [Dev](bootstrap/dev.yaml) and [Prod](bootstrap/prod.yaml) Applications select the environment values and pinned GHCR images from `main`. Dev has one Backend deployment. Prod has Blue and Green Backend deployments so a new image can be checked before it receives live traffic.
 
-## Bootstrap the migration
+## Render the chart locally
 
-1. Publish the compatible reusable workflows on reusable-workflow main first. They can update both the old Kustomize layout and the new Helm values.
-2. Set Terraform preview_runner_cidrs to the trusted release runner's fixed egress CIDR and github_oidc_provider_arn to the existing GitHub OIDC provider. Review the Terraform plan. It should move the existing Prod API rule in state, preserve Blue's ALB and target group, and add Green and the preview rules. Apply this infrastructure before switching Argo CD to the chart.
-3. Publish the chart and Argo Application specs. Reapply bootstrap/dev.yaml and bootstrap/prod.yaml. Blue intentionally keeps the existing backend resource names. Check that both slots have two healthy targets and that normal traffic still reaches Blue. The cluster needs capacity for both slots and one surge replica during an update.
+From the repository root, use Helm 3 to render the Dev chart with the same values as Argo CD. This check renders Kubernetes YAML locally.
+
+```powershell
+helm template tikto-dev ./charts/tikto --namespace tikto-dev `
+  -f ./charts/tikto/environments/dev/values.yaml `
+  -f ./charts/tikto/environments/dev/frontend-image.yaml `
+  -f ./charts/tikto/environments/dev/backend-image.yaml `
+  -f ./charts/tikto/environments/dev/notification-image.yaml
+```
+
+The output includes Deployments for `frontend`, `backend` and `notification`, plus target group bindings for Frontend and Backend. To render Prod, use namespace `tikto-prod` and the files listed under `helm.valueFiles` in [bootstrap/prod.yaml](bootstrap/prod.yaml).
+
+## Deploy with Argo CD
+
+You need an EKS cluster with the TikTo target groups, AWS Load Balancer Controller, Argo CD and kubectl access. For platform and controller setup, follow the [Terraform guide](https://github.com/tikto-calender/infra) or [CloudFormation guide](https://github.com/tikto-calender/infra-by-cloudformation).
+
+Confirm that the environment values and pullable image digests are published to manifest `main`. From the repository root, apply the namespaces and the Application for each enabled environment:
+
+```powershell
+kubectl config current-context
+kubectl apply -f ./bootstrap/namespaces.yaml
+kubectl apply -f ./bootstrap/dev.yaml
+# Run this only if the Prod ALB and target groups are enabled.
+kubectl apply -f ./bootstrap/prod.yaml
+kubectl -n argocd get applications
+```
+
+Expect each enabled application to report `Synced` and `Healthy`. Check `/api/health` and `/api/status` on its ALB URL. To enable Telegram, create the `notification-telegram` Secret in the relevant namespace using the [example manifests](examples/secrets).
+
+## Promote to Production
+
+After verifying Dev, open **Actions** in this repository and run the relevant workflow from `main` with a version such as `v2.0.1`. Each workflow promotes the digest already deployed to Dev.
+
+| Workflow in Manifest | Reusable workflow |
+| --- | --- |
+| [Promote Frontend](.github/workflows/release-frontend.yml) | `cd-prod.yml` |
+| [Promote Notification](.github/workflows/release-notification.yml) | `cd-prod.yml` |
+| [Promote Backend (blue/green)](.github/workflows/release-backend.yml) | `cd-prod-backend.yml` |
+| [Promote All Services](.github/workflows/release.yml) | Both workflows, with one version per service |
+
+Check the Prod application in Argo CD and verify the app through the Prod ALB. Then run **Finalize release** in each corresponding source repository with the same version. [Shared workflow setup](https://github.com/tikto-calender/reusable-workflow)
+
+When publishing this migration, publish `cd-prod-backend.yml` and `scripts/backend_release.py` to `main` in `reusable-workflow` before publishing the Manifest caller.
+
+## Configure Backend blue/green
+
+1. Publish the compatible reusable workflows on `reusable-workflow` `main` first. They support both Helm values and the earlier Kustomize layout.
+2. Configure the runner's fixed egress CIDR and the GitHub OIDC provider in your platform stack. For Terraform, use `preview_runner_cidrs` and `github_oidc_provider_arn`. When migrating an existing Terraform deployment, verify the plan moves the Prod API rule in state, preserves Blue's ALB and target group, and adds Green and the preview rules. Apply the infrastructure before switching Argo CD to the chart.
+3. Publish the chart and Argo Application specs, then apply the Dev and Prod Applications. Blue keeps the existing backend resource names. Check that both slots have two healthy targets and that normal traffic reaches the active slot recorded in Git. The cluster needs capacity for both slots and one surge replica during an update.
 4. Register a trusted Linux runner with label tikto-prod-preview, Python 3.11+, AWS CLI v2, Docker and Buildx. Protect the prod GitHub Environment with a main branch deployment restriction. Restrict the runner to this repository and production workflows.
 5. Set the prod Environment variables below. Then deploy a new BE Dev commit containing RELEASE_IMAGE support and check /api/runtime before attempting promotion.
 

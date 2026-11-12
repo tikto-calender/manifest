@@ -1,2 +1,3 @@
 # Local Secret manifests copied from the examples and filled with credentials.
 /examples/secrets/*.yaml
+/examples/*.local.yaml
