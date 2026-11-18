@@ -1,0 +1,90 @@
+# kube-prometheus-stack 93.4.0, release monitoring, namespace observability.
+# Helm creates the ServiceAccounts and their RBAC from these settings.
+prometheusOperator:
+  serviceAccount:
+    create: true
+    name: monitoring-kube-prometheus-operator
+
+prometheus:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: monitoring-kube-prometheus-prometheus
+    automountServiceAccountToken: true
+  service:
+    type: ClusterIP
+  prometheusSpec:
+    replicas: 1
+    retention: 2d
+    retentionSize: 2GB
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+    # Trial storage: data is lost when the Pod is replaced. No PVC is created.
+    storageSpec:
+      emptyDir: {}
+    # Discover monitors in any namespace, but only for this monitoring release.
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelector:
+      matchLabels:
+        release: monitoring
+    podMonitorNamespaceSelector: {}
+    podMonitorSelector:
+      matchLabels:
+        release: monitoring
+
+grafana:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: monitoring-grafana
+  adminUser: admin
+  # Let the chart generate a password on install and reuse its Secret on upgrade.
+  adminPassword: ""
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: false
+  persistence:
+    enabled: false
+  defaultDashboardsEnabled: true
+  sidecar:
+    datasources:
+      enabled: true
+
+alertmanager:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: monitoring-kube-prometheus-alertmanager
+  service:
+    type: ClusterIP
+
+kubeStateMetrics:
+  enabled: true
+kube-state-metrics:
+  serviceAccount:
+    create: true
+    name: monitoring-kube-state-metrics
+    automountServiceAccountToken: true
+
+nodeExporter:
+  enabled: true
+prometheus-node-exporter:
+  serviceAccount:
+    create: true
+    name: monitoring-prometheus-node-exporter
+    automountServiceAccountToken: false
+
+# These control-plane endpoints are not exposed for scraping on this EKS setup.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false

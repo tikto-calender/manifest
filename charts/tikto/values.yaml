@@ -1,6 +1,11 @@
 environment: ''
 backendTable: ''
 backendReplicas: 1
+serviceAccount:
+  create: true
+  name: tikto-app
+  annotations: {}
+  automountServiceAccountToken: true
 frontendTargetGroup: ''
 backendSlots: {}
 rolloutLab:

@@ -1,5 +1,6 @@
 {{- define "tikto.backendPodSpec" -}}
-serviceAccountName: tikto-app
+serviceAccountName: {{ required "serviceAccount.name is required" .values.serviceAccount.name | quote }}
+automountServiceAccountToken: {{ .values.serviceAccount.automountServiceAccountToken }}
 {{- if eq .values.environment "prod" }}
 affinity:
   podAntiAffinity:
