@@ -1,8 +1,8 @@
 environment: prod
 backendTable: tikto-prod-app
 backendReplicas: 2
-frontendTargetGroup: tikto-prod-eks-frontend
+frontendTargetGroup: frontend
 backendSlots:
   backend:
     imageKey: backend
-    targetGroup: tikto-prod-eks-backend
+    targetGroup: backend
